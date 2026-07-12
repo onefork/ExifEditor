@@ -1881,6 +1881,18 @@ if (btnExportZip) {
 // ====================================================================
 // 启动
 // ====================================================================
+// modal 显隐时同步 body.has-modal 类（用于隐藏吸底底栏）
+// 监听 preset / confirm 两个 modal 的 hidden 属性变化
+const modalObserver = new MutationObserver(() => {
+  const anyModalOpen =
+    (modalPreset && !modalPreset.hidden) ||
+    (modalConfirm && !modalConfirm.hidden);
+  document.body.classList.toggle('has-modal', anyModalOpen);
+});
+[modalPreset, modalConfirm].forEach((m) => {
+  if (m) modalObserver.observe(m, { attributes: true, attributeFilter: ['hidden'] });
+});
+
 store.subscribe(() => renderAll());
 
 initTheme();

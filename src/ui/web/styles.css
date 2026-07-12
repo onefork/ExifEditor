@@ -1472,11 +1472,15 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 50;
-  padding: var(--space-lg);
+  z-index: 200;
+  padding: calc(env(safe-area-inset-top, 0px) + 72px) var(--space-lg) var(--space-lg);
 }
 .modal[hidden] {
   display: none !important;
+}
+/* modal 打开时隐藏吸底底栏，避免遮挡 modal 内容 */
+body.has-modal .action-bar {
+  display: none;
 }
 .modal-card {
   background: var(--color-card);
