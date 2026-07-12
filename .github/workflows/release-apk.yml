@@ -36,17 +36,23 @@ jobs:
       # 默认 mode=production -> base='/', 适合 Capacitor WebView。
       - run: npm run cap:sync
 
-      # 用 setup-gradle 缓存 Gradle 发行版，规避 services.gradle.org 偶发不可达；
-      # 后续运行命中缓存后不再下载。
+      # 用 setup-gradle 缓存 Gradle 状态；同时预装一个 Gradle 版本，避免
+      # gradlew 去 services.gradle.org 下载 (该域名在 runner 上偶发不可达)。
       - uses: gradle/actions/setup-gradle@v4
         with:
+          gradle-version: '8.14.3'
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
 
       - name: Build debug & release APK
         working-directory: android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug assembleRelease --no-daemon
+          # 优先用 setup-gradle 预装的 gradle；回退到 ./gradlew
+          if command -v gradle >/dev/null 2>&1; then
+            gradle assembleDebug assembleRelease --no-daemon
+          else
+            ./gradlew assembleDebug assembleRelease --no-daemon
+          fi
 
       - name: Collect APKs
         run: |
