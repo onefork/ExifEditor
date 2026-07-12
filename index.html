@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b7cec" />
+    <title data-i18n="header.fullTitle">图片信息编辑器 · 本地处理 · 隐私安全</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="header-main">
+        <div class="header-text">
+          <h1 data-i18n="header.appName">图片信息编辑器</h1>
+          <p class="subtitle" data-i18n="header.subtitle">修复拍摄时间 / 位置 / 设备信息</p>
+        </div>
+        <div class="header-controls" role="toolbar" aria-label="settings">
+          <div class="lang-selector" id="lang-selector" role="combobox" aria-haspopup="listbox" aria-expanded="false">
+            <button type="button" class="lang-button" id="lang-button" data-i18n-aria="settings.language">
+              <span class="lang-flag" id="lang-flag"></span>
+              <span class="lang-label" id="lang-label"></span>
+              <span class="lang-caret" aria-hidden="true">▾</span>
+            </button>
+            <div class="lang-menu" id="lang-menu" role="listbox" hidden></div>
+          </div>
+          <div class="theme-selector" id="theme-selector" role="group" aria-label="theme">
+            <button type="button" class="theme-btn" data-theme-value="light" data-i18n-title="settings.themeLight">
+              <span class="theme-icon" aria-hidden="true">☀</span>
+              <span class="theme-label" data-i18n="settings.themeLight">浅色</span>
+            </button>
+            <button type="button" class="theme-btn" data-theme-value="dark" data-i18n-title="settings.themeDark">
+              <span class="theme-icon" aria-hidden="true">🌙</span>
+              <span class="theme-label" data-i18n="settings.themeDark">深色</span>
+            </button>
+            <button type="button" class="theme-btn" data-theme-value="system" data-i18n-title="settings.themeSystem">
+              <span class="theme-icon" aria-hidden="true">🖥</span>
+              <span class="theme-label" data-i18n="settings.themeSystem">跟随</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="header-count" id="image-count" data-i18n="header.notLoaded">尚未添加图片</div>
+    </header>
+
+    <main class="container">
+      <!-- 拖拽上传遮罩 -->
+      <div class="drop-overlay" id="drop-overlay" hidden>
+        <div class="drop-overlay-inner">
+          <div class="drop-overlay-icon">＋</div>
+          <div class="drop-overlay-text" data-i18n="panel.dropHint">松开以添加图片</div>
+        </div>
+      </div>
+      <!-- 选图 -->
+      <section class="panel" id="panel-picker">
+        <label class="file-picker" for="file-input">
+          <div class="file-picker-inner">
+            <div class="icon-plus" aria-hidden="true">＋</div>
+            <div class="picker-title" data-i18n="panel.pickerTitle">点击选择图片 (支持批量)</div>
+            <div class="picker-hint" data-i18n="panel.pickerHint">支持 JPEG/JPG；PNG 等其他格式会被跳过</div>
+          </div>
+          <input id="file-input" type="file" multiple accept="image/jpeg,image/jpg,image/*" hidden />
+        </label>
+      </section>
+
+      <!-- 缩略图列表 -->
+      <section class="panel" id="panel-list" hidden>
+        <div class="panel-head">
+          <h2><span data-i18n="panel.listTitleLabel">已选图片</span> <span class="badge" id="list-count">0</span></h2>
+          <div class="panel-head-right">
+            <button type="button" class="icon-btn btn-toggle-view" id="btn-view-toggle-list" data-i18n-title="toggle.viewEdited" aria-label="查看">👁</button>
+            <button class="btn btn-ghost" id="btn-clear" data-i18n="panel.clear">清空</button>
+          </div>
+        </div>
+        <div class="thumb-list" id="thumb-list"></div>
+        <button type="button" class="collapse-toggle" id="collapse-toggle" hidden aria-expanded="false" data-i18n-aria="panel.collapseToggle"><span class="collapse-icon">▲</span><span class="collapse-text">展开全部</span></button>
+      </section>
+
+      <!-- 编辑器 -->
+      <section class="panel" id="panel-edit" hidden>
+        <div class="panel-head">
+          <h2 data-i18n="panel.editTitle">编辑 EXIF</h2>
+          <div class="panel-head-right">
+            <button type="button" class="icon-btn btn-toggle-view" id="btn-view-toggle-edit" data-i18n-title="toggle.viewEdited" aria-label="查看">👁</button>
+            <div class="mode-switch" role="tablist" aria-label="编辑模式">
+              <button class="mode-btn is-active" data-mode="single" data-i18n="mode.browseEdit">浏览/修改</button>
+              <button class="mode-btn" data-mode="batch" data-i18n="mode.batch">批量修改</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 批量模式 -->
+        <div id="mode-batch" hidden>
+          <p class="hint" data-i18n="batch.fieldHint">批量模式：填写需要统一的字段，点「应用到全部」将其写入所有图片。</p>
+
+          <div class="field" data-field="dateTimeOriginal">
+            <div class="field-head">
+              <span class="field-label" data-i18n="fieldBatch.dateTime">统一拍摄时间</span>
+              <span class="field-actions">
+                <button type="button" class="icon-btn btn-clear-all" data-batch-clear-all="dateTimeOriginal" data-i18n-title="batch.clearAllFromPhotos" aria-label="clear">✖</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-batch-apply="dateTimeOriginal" disabled data-i18n-title="batch.applyAll" data-i18n="batch.applyAll">应用到全部</button>
+              </span>
+            </div>
+            <div class="field-body field-row">
+              <span class="input-with-clear" style="flex: 1 1 140px;">
+                <input type="date" class="input" data-batch="dateTimeOriginal" />
+                <button type="button" class="input-clear" data-clear-batch="dateTimeOriginal" aria-hidden="true">×</button>
+              </span>
+              <span class="input-with-clear" style="flex: 1 1 140px;">
+                <input type="time" class="input" data-batch="dateTimeOriginalTime" step="1" data-i18n-placeholder="batch.optionalTime" />
+                <button type="button" class="input-clear" data-clear-batch="dateTimeOriginalTime" aria-hidden="true">×</button>
+              </span>
+              <button type="button" class="icon-btn btn-reset" data-batch-reset="dateTimeOriginal" data-i18n-title="action.resetField">↺</button>
+            </div>
+          </div>
+
+          <!-- 时间平移栏目 -->
+          <div class="field" data-field="timeShift">
+            <div class="field-head">
+              <span class="field-label" data-i18n="batch.shiftTitle">时间平移</span>
+              <span class="field-actions">
+                <button type="button" class="btn btn-ghost btn-sm" id="btn-batch-shift-apply" data-i18n-title="batch.applyAll" data-i18n="batch.applyAll" disabled>应用到全部</button>
+              </span>
+            </div>
+            <p class="hint small" data-i18n="batch.shiftHint">每张照片保留各自原始时间，在其基础上加/减你填写的年/月/日/时/分/秒数</p>
+            <div class="field-body field-row shift-row">
+              <select class="input" id="shift-sign" style="flex: 0 0 60px;">
+                <option value="1" data-i18n="batch.shiftSignPlus">＋</option>
+                <option value="-1" data-i18n="batch.shiftSignMinus">－</option>
+              </select>
+              <input type="number" class="input shift-num" id="shift-years" step="1" data-i18n-placeholder="batch.shiftYears" />
+              <label for="shift-years" class="shift-label" data-i18n="batch.shiftYears">年</label>
+              <input type="number" class="input shift-num" id="shift-months" step="1" data-i18n-placeholder="batch.shiftMonths" />
+              <label for="shift-months" class="shift-label" data-i18n="batch.shiftMonths">月</label>
+              <input type="number" class="input shift-num" id="shift-days" step="1" data-i18n-placeholder="batch.shiftDays" />
+              <label for="shift-days" class="shift-label" data-i18n="batch.shiftDays">日</label>
+              <input type="number" class="input shift-num" id="shift-hours" step="1" data-i18n-placeholder="batch.shiftHours" />
+              <label for="shift-hours" class="shift-label" data-i18n="batch.shiftHours">时</label>
+              <input type="number" class="input shift-num" id="shift-minutes" step="1" data-i18n-placeholder="batch.shiftMinutes" />
+              <label for="shift-minutes" class="shift-label" data-i18n="batch.shiftMinutes">分</label>
+              <input type="number" class="input shift-num" id="shift-seconds" step="1" data-i18n-placeholder="batch.shiftSeconds" />
+              <label for="shift-seconds" class="shift-label" data-i18n="batch.shiftSeconds">秒</label>
+              <button type="button" class="icon-btn btn-reset" data-batch-reset="timeShift" data-i18n-title="action.resetField">↺</button>
+            </div>
+          </div>
+
+          <div class="field" data-field="gps">
+            <div class="field-head">
+              <span class="field-label" data-i18n="fieldBatch.gps">统一 GPS</span>
+              <span class="field-actions">
+                <button type="button" class="icon-btn btn-clear-all" data-batch-clear-all="gps" data-i18n-title="batch.clearAllFromPhotos" aria-label="clear">✖</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-batch-apply="gps" disabled data-i18n-title="batch.applyAll" data-i18n="batch.applyAll">应用到全部</button>
+              </span>
+            </div>
+            <div class="field-body field-row">
+              <input class="input" type="number" step="any" data-i18n-placeholder="field.latExample" data-batch="gpsLat" />
+              <input class="input" type="number" step="any" data-i18n-placeholder="field.lngExample" data-batch="gpsLng" />
+              <label class="slider-label">
+                <input type="range" class="slider" id="batch-preset-offset-quick" min="0" max="2000" step="10" value="0" />
+                <span>±<span id="batch-preset-offset-view">0</span> m</span>
+              </label>
+              <button type="button" class="icon-btn btn-reset" data-batch-reset="gps" data-i18n-title="action.resetField">↺</button>
+            </div>
+            <div class="field-body field-row batch-preset-row" style="margin-top: 8px;">
+              <select class="input" id="batch-preset-select" style="flex: 2 1 200px;"></select>
+              <button class="btn btn-ghost" id="btn-manage-preset" type="button" data-i18n="preset.manage">管理预设</button>
+            </div>
+            <p class="hint small" id="batch-preset-info" data-i18n="batch.gpsPresetInfo">选择预设将自动填入上述经纬度和随机偏移值；点「应用到全部」后生效</p>
+          </div>
+
+          <div class="field" data-field="equip">
+            <div class="field-head">
+              <span class="field-label" data-i18n="fieldBatch.device">统一设备品牌 / 型号</span>
+              <span class="field-actions">
+                <button type="button" class="icon-btn btn-clear-all" data-batch-clear-all="equip" data-i18n-title="batch.clearAllFromPhotos" aria-label="clear">✖</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-batch-apply="equip" disabled data-i18n-title="batch.applyAll" data-i18n="batch.applyAll">应用到全部</button>
+              </span>
+            </div>
+            <div class="field-body field-row">
+              <input class="input" type="text" data-i18n-placeholder="field.makeExample" data-batch="make" />
+              <input class="input" type="text" data-i18n-placeholder="field.modelExample" data-batch="model" />
+              <button type="button" class="icon-btn btn-reset" data-batch-reset="equip" data-i18n-title="action.resetField">↺</button>
+            </div>
+          </div>
+
+          <div class="field" data-field="software">
+            <div class="field-head">
+              <span class="field-label" data-i18n="fieldBatch.software">统一软件</span>
+              <span class="field-actions">
+                <button type="button" class="icon-btn btn-clear-all" data-batch-clear-all="software" data-i18n-title="batch.clearAllFromPhotos" aria-label="clear">✖</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-batch-apply="software" disabled data-i18n-title="batch.applyAll" data-i18n="batch.applyAll">应用到全部</button>
+              </span>
+            </div>
+            <div class="field-body">
+              <input class="input" type="text" data-i18n-placeholder="field.softwareExample" data-batch="software" />
+              <button type="button" class="icon-btn btn-reset" data-batch-reset="software" data-i18n-title="action.resetField">↺</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 浏览模式（逐张） -->
+        <div id="mode-single">
+          <p class="hint" id="single-hint" data-i18n="error.selectOne">请在上方列表中选择一张图片编辑</p>
+          <div id="single-editor" hidden>
+            <div class="row mb nav-row">
+              <div class="thumb-big" id="single-thumb"></div>
+              <div class="meta two-col" id="single-meta"></div>
+            </div>
+            <div class="row end nav-buttons">
+              <button class="btn btn-ghost btn-sm" id="btn-prev" type="button" data-i18n-aria="action.prev" data-i18n="action.prev">◀ Foto precedente</button>
+              <button class="btn btn-ghost btn-sm" id="btn-next" type="button" data-i18n-aria="action.next" data-i18n="action.next">Foto successiva ▶</button>
+            </div>
+
+            <div class="field" data-field="dateTimeOriginal">
+              <label class="field-label-row"><span data-i18n="field.dateTime">拍摄时间</span> <span class="dot" data-dot="dateTimeOriginal" hidden></span></label>
+              <div class="field-body field-row">
+                <span class="input-with-clear" style="flex: 1 1 140px;">
+                  <input type="date" class="input" data-single="dateTimeOriginal" />
+                  <button type="button" class="input-clear" data-clear-single="dateTimeOriginal" aria-hidden="true">×</button>
+                </span>
+                <span class="input-with-clear" style="flex: 1 1 140px;">
+                  <input type="time" class="input" data-single="dateTimeOriginalTime" step="1" />
+                  <button type="button" class="input-clear" data-clear-single="dateTimeOriginalTime" aria-hidden="true">×</button>
+                </span>
+                <button type="button" class="icon-btn btn-reset" data-reset-single="dateTimeOriginal" data-i18n-title="action.resetField">↺</button>
+              </div>
+            </div>
+
+            <div class="field" data-field="gps">
+              <label class="field-label-row"><span data-i18n="field.gps">GPS 坐标</span> <span class="dot" data-dot="gps" hidden></span></label>
+              <div class="field-body field-row">
+                <input type="number" step="any" class="input" data-i18n-placeholder="field.lat" data-single="gpsLat" />
+                <input type="number" step="any" class="input" data-i18n-placeholder="field.lng" data-single="gpsLng" />
+                <button type="button" class="icon-btn btn-reset" data-reset-single="gps" data-i18n-title="action.resetField">↺</button>
+              </div>
+              <div class="field-body field-row single-preset-row" id="single-preset-row" style="margin-top: 8px;">
+                <select class="input" id="single-preset-select" style="flex: 2 1 200px;"></select>
+                <label class="slider-label">
+                  <input type="range" class="slider" id="single-preset-offset-quick" min="0" max="2000" step="10" value="0" />
+                  <span>±<span id="single-preset-offset-view">0</span> m</span>
+                </label>
+                <button class="btn btn-ghost" id="btn-manage-preset-single" type="button" data-i18n="preset.manage">管理预设</button>
+              </div>
+            </div>
+
+            <div class="field" data-field="equip">
+              <label class="field-label-row"><span data-i18n="field.device">品牌 / 型号</span> <span class="dot" data-dot="equip" hidden></span></label>
+              <div class="field-body field-row">
+                <input type="text" class="input" data-i18n-placeholder="field.make" data-single="make" />
+                <input type="text" class="input" data-i18n-placeholder="field.model" data-single="model" />
+                <button type="button" class="icon-btn btn-reset" data-reset-single="equip" data-i18n-title="action.resetField">↺</button>
+              </div>
+            </div>
+
+            <div class="field" data-field="software">
+              <label class="field-label-row"><span data-i18n="field.software">软件</span> <span class="dot" data-dot="software" hidden></span></label>
+              <div class="field-body">
+                <input type="text" class="input" data-i18n-placeholder="field.softwareHint" data-single="software" />
+                <button type="button" class="icon-btn btn-reset" data-reset-single="software" data-i18n-title="action.resetField">↺</button>
+              </div>
+            </div>
+
+            <div class="row end">
+              <button class="btn btn-ghost" id="btn-single-reset" data-i18n="action.resetAll">重置整张</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 导出 -->
+      <section class="panel" id="panel-export" hidden>
+        <div class="row export-row">
+          <button class="btn btn-primary" id="btn-export-zip" type="button" data-i18n="action.downloadZip">批量导出 ZIP</button>
+          <button class="btn" id="btn-export-one" type="button" data-i18n="action.downloadOne">下载当前图片</button>
+        </div>
+        <div class="progress-wrap" id="progress-wrap" hidden>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <div class="progress-text" id="progress-text" data-i18n="action.preparing">准备中…</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- 预设管理弹窗 -->
+    <div class="modal" id="modal-preset" hidden>
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3 data-i18n="preset.title">预设地点</h3>
+          <button class="icon-btn" id="btn-preset-close" data-i18n-aria="common.close">×</button>
+        </div>
+        <div class="modal-body">
+          <ul class="preset-list" id="preset-list"></ul>
+          <form id="preset-form" class="preset-form">
+            <h4 id="preset-form-title" data-i18n="preset.addTitle">新增 / 修改预设</h4>
+            <div class="preset-field">
+              <label for="preset-name" data-i18n="preset.name">名称</label>
+              <input type="text" id="preset-name" class="input" required maxlength="80" />
+            </div>
+            <div class="row">
+              <div class="flex-1 preset-field">
+                <label for="preset-lat" data-i18n="preset.lat">纬度</label>
+                <input type="number" id="preset-lat" class="input" step="any" required />
+              </div>
+              <div class="flex-1 preset-field">
+                <label for="preset-lng" data-i18n="preset.lng">经度</label>
+                <input type="number" id="preset-lng" class="input" step="any" required />
+              </div>
+            </div>
+            <div class="preset-field preset-slider-field">
+              <label for="preset-offset" data-i18n="preset.offset">随机偏移范围</label>
+              <label class="slider-label">
+                <input type="range" id="preset-offset" class="slider" min="0" max="2000" step="10" value="100" />
+                <span>±<span id="preset-offset-val">100</span> m</span>
+              </label>
+            </div>
+            <div class="row">
+              <button class="btn btn-primary" id="btn-preset-save" type="submit" data-i18n="common.save">保存</button>
+              <button class="btn btn-ghost btn-icon-only" id="btn-preset-clear" type="button" data-i18n-title="preset.clearForm">↻</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- 通用确认弹窗 -->
+    <div class="modal" id="modal-confirm" hidden>
+      <div class="modal-card">
+        <div class="modal-head"><h3 data-i18n="modal.confirmTitle">确认</h3></div>
+        <div class="modal-body">
+          <p id="confirm-text" data-i18n="action.clearAll">是否继续？</p>
+          <div class="row end">
+            <button class="btn btn-ghost" id="btn-confirm-cancel" data-i18n="common.cancel">取消</button>
+            <button class="btn" id="btn-confirm-ok" data-i18n="common.ok">确定</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="app-footer"><p data-i18n="footer.privacy">数据仅在浏览器内处理 · 不向服务器上传任何信息</p></footer>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>

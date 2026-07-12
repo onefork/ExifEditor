@@ -1,0 +1,28 @@
+node_modules/
+dist/
+.vite/
+.DS_Store
+*.log
+# debug 样张(只保留 README,不提交图片本身)
+debug-samples/*
+!debug-samples/README.md
+# Android / Capacitor
+android/app/release/
+android/.gradle/
+android/local.properties
+android/app/build/
+android/build/
+android/.kotlin/
+*.keystore
+resources/
+
+# 内部规划文档与上传记录
+.trae/
+.uploads/
+
+# 上传的初始 zip 包
+图片_EXIF_编辑器.zip
+*.zip
+
+# 根目录预编译 APK（APK 通过 Releases 分发）
+/*.apk
