@@ -21,6 +21,8 @@ export default {
     parsing_one: 'Обработка {{count}} фото…',
     parsing_few: 'Обработка {{count}} фото…',
     parsing_many: 'Обработка {{count}} фото…',
+    expand: 'Развернуть',
+    collapse: 'Свернуть',
   },
   panel: {
     listTitleLabel: 'Выбрано',

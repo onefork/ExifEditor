@@ -17,6 +17,8 @@ export default {
     notLoaded: '아직 사진이 없습니다',
     loadedCount: '{{count}}장의 사진을 불러왔습니다',
     parsing: '{{count}}장의 사진 분석 중…',
+    expand: '펼치기',
+    collapse: '접기',
   },
   panel: {
     listTitleLabel: '선택된 사진',

@@ -19,6 +19,8 @@ export default {
     loadedCount_other: '{{count}} 枚の写真を読み込みました',
     parsing_one: '{{count}} 枚の写真を解析中…',
     parsing_other: '{{count}} 枚の写真を解析中…',
+    expand: '展開',
+    collapse: '折りたたむ',
   },
   panel: {
     listTitleLabel: '選択中の写真',

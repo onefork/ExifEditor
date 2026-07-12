@@ -19,6 +19,8 @@ export default {
     loadedCount_other: '{{count}} fotos carregadas',
     parsing_one: 'Processando {{count}} foto…',
     parsing_other: 'Processando {{count}} fotos…',
+    expand: 'Expandir',
+    collapse: 'Recolher',
   },
   panel: {
     listTitleLabel: 'Selecionadas',

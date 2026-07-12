@@ -34,7 +34,6 @@ const collapseToggle = document.getElementById('collapse-toggle');
 let isCollapsed = false;
 let previousCount = 0;
 const panelEdit = document.getElementById('panel-edit');
-const panelExport = document.getElementById('panel-export');
 const btnClear = document.getElementById('btn-clear');
 const modeBtns = document.querySelectorAll('.mode-btn');
 const singleHintEl = document.getElementById('single-hint');
@@ -108,6 +107,13 @@ const progressWrap = document.getElementById('progress-wrap');
 const progressFill = document.getElementById('progress-fill');
 const progressText = document.getElementById('progress-text');
 
+// ------ 顶栏折叠 / 吸底底栏 ------
+const appHeader = document.querySelector('.app-header');
+const btnHeaderExpand = document.getElementById('btn-header-expand');
+const btnHeaderCollapse = document.getElementById('btn-header-collapse');
+const imageCountCompactEl = document.getElementById('image-count-compact');
+const actionBar = document.getElementById('action-bar');
+
 // ====================================================================
 // store 初始化
 // ====================================================================
@@ -117,6 +123,10 @@ await ensureDefaultsOnce();
 // 查看模式切换：true = 查看修改后的信息；false = 查看修改前的原始信息
 // 已修改的字段在 showEdited=true 时会高亮显示；不持久化（刷新重置）
 let showEdited = true;
+// 顶栏展开状态：true=完整顶栏；false=极小顶栏。不持久化（刷新重置）
+// 默认行为：无图时强制完整；有图时默认极小，用户可手动展开
+let headerExpanded = true;
+let hasAutoCollapsed = false; // 是否已自动收起过（避免用户展开后又被动收起）
 // 时间平移消息 token: 用于避免 setTimeout 竞态 (旧定时器覆盖新消息)
 let shiftMsgToken = 0;
 // 跟踪上次渲染的选中图片 ID, 用于切换图片时重置预设下拉
@@ -137,6 +147,22 @@ function setShowEdited(value) {
   showEdited = value;
   updateViewToggleButtons();
   renderAll();
+}
+
+// 根据图片数量与 headerExpanded 切换顶栏模式
+// - 无图：强制 is-full（完整顶栏），收起按钮隐藏
+// - 有图 + headerExpanded=true：is-full，收起按钮可见，展开按钮隐藏
+// - 有图 + headerExpanded=false：is-compact（极小顶栏），展开按钮可见，收起按钮隐藏
+function updateHeaderMode() {
+  const count = store.images.length;
+  const expanded = count === 0 ? true : headerExpanded;
+  if (appHeader) {
+    appHeader.classList.toggle('is-full', expanded);
+    appHeader.classList.toggle('is-compact', !expanded);
+  }
+  if (btnHeaderExpand) btnHeaderExpand.hidden = expanded;
+  if (btnHeaderCollapse) btnHeaderCollapse.hidden = count === 0 || !expanded;
+  if (btnHeaderExpand) btnHeaderExpand.setAttribute('aria-expanded', String(expanded));
 }
 
 // 判断某字段是否被用户手动修改过（用于信息区高亮显示）
@@ -535,11 +561,27 @@ function getDisplayValue(im, field) {
 function renderAll() {
   const imgs = store.images;
   const count = imgs.length;
-  imageCountEl.textContent = count ? t('header.loadedCount', { count }) : t('header.notLoaded');
+  const countText = count ? t('header.loadedCount', { count }) : t('header.notLoaded');
+  imageCountEl.textContent = countText;
+  if (imageCountCompactEl) imageCountCompactEl.textContent = countText;
   listCountEl.textContent = String(count);
   panelList.hidden = count === 0;
   panelEdit.hidden = count === 0;
-  panelExport.hidden = count === 0;
+
+  // 吸底底栏：有图时显示，并给 body 留空间
+  if (actionBar) {
+    actionBar.hidden = count === 0;
+    document.body.classList.toggle('has-action-bar', count > 0);
+  }
+
+  // 首次加载到图片时自动收起顶栏（仅一次）
+  if (count > 0 && !hasAutoCollapsed) {
+    hasAutoCollapsed = true;
+    headerExpanded = false;
+  }
+
+  // 顶栏模式切换
+  updateHeaderMode();
 
   // 选图区自动收缩：加载图片后大虚线框变成纤细的「+继续添加」条
   const panelPicker = document.getElementById('panel-picker');
@@ -1098,7 +1140,9 @@ function selectRelative(delta) {
 fileInput.addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []);
   if (!files.length) return;
-  imageCountEl.textContent = t('header.parsing', { count: files.length });
+  const parsingText = t('header.parsing', { count: files.length });
+  imageCountEl.textContent = parsingText;
+  if (imageCountCompactEl) imageCountCompactEl.textContent = parsingText;
   await store.addFiles(files);
   fileInput.value = '';
 });
@@ -1141,7 +1185,9 @@ window.addEventListener('drop', async (e) => {
   if (dropOverlay) dropOverlay.hidden = true;
   const files = Array.from(e.dataTransfer.files || []);
   if (!files.length) return;
-  imageCountEl.textContent = t('header.parsing', { count: files.length });
+  const parsingText = t('header.parsing', { count: files.length });
+  imageCountEl.textContent = parsingText;
+  if (imageCountCompactEl) imageCountCompactEl.textContent = parsingText;
   await store.addFiles(files);
 });
 
@@ -1154,6 +1200,20 @@ document.querySelectorAll('.btn-toggle-view').forEach((btn) => {
     setShowEdited(!showEdited);
   });
 });
+
+// ---- 顶栏折叠/展开 ----
+if (btnHeaderExpand) {
+  btnHeaderExpand.addEventListener('click', () => {
+    headerExpanded = true;
+    updateHeaderMode();
+  });
+}
+if (btnHeaderCollapse) {
+  btnHeaderCollapse.addEventListener('click', () => {
+    headerExpanded = false;
+    updateHeaderMode();
+  });
+}
 
 // ---- 缩略图列表折叠 ----
 if (collapseToggle) {

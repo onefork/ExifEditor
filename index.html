@@ -8,7 +8,14 @@
     <link rel="stylesheet" href="./src/ui/web/styles.css" />
   </head>
   <body>
-    <header class="app-header">
+    <header class="app-header is-full">
+      <!-- 极小顶栏（is-compact 时显示） -->
+      <div class="header-compact">
+        <span class="header-compact-name" data-i18n="header.appName">图片信息编辑器</span>
+        <span class="header-compact-count" id="image-count-compact" data-i18n="header.notLoaded">尚未添加图片</span>
+        <button type="button" class="icon-btn header-expand-btn" id="btn-header-expand" data-i18n-title="header.expand" aria-label="展开顶栏" aria-expanded="false">⌄</button>
+      </div>
+      <!-- 完整顶栏（is-full 时显示） -->
       <div class="header-main">
         <div class="header-text">
           <h1 data-i18n="header.appName">图片信息编辑器</h1>
@@ -37,6 +44,7 @@
               <span class="theme-label" data-i18n="settings.themeSystem">跟随</span>
             </button>
           </div>
+          <button type="button" class="icon-btn header-collapse-btn" id="btn-header-collapse" data-i18n-title="header.collapse" aria-label="收起顶栏" hidden>⌃</button>
         </div>
       </div>
       <div class="header-count" id="image-count" data-i18n="header.notLoaded">尚未添加图片</div>
@@ -266,20 +274,21 @@
         </div>
       </section>
 
-      <!-- 导出 -->
-      <section class="panel" id="panel-export" hidden>
-        <div class="row export-row">
-          <button class="btn btn-primary" id="btn-export-zip" type="button" data-i18n="action.downloadZip">批量导出 ZIP</button>
-          <button class="btn" id="btn-export-one" type="button" data-i18n="action.downloadOne">下载当前图片</button>
-        </div>
-        <div class="progress-wrap" id="progress-wrap" hidden>
-          <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
-          </div>
-          <div class="progress-text" id="progress-text" data-i18n="action.preparing">准备中…</div>
-        </div>
-      </section>
     </main>
+
+    <!-- 吸底底栏：导出操作（有图片时显示） -->
+    <div class="action-bar" id="action-bar" hidden>
+      <div class="action-bar-row">
+        <button class="btn btn-primary" id="btn-export-zip" type="button" data-i18n="action.downloadZip">批量导出 ZIP</button>
+        <button class="btn" id="btn-export-one" type="button" data-i18n="action.downloadOne">下载当前图片</button>
+      </div>
+      <div class="progress-wrap" id="progress-wrap" hidden>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+        <div class="progress-text" id="progress-text" data-i18n="action.preparing">准备中…</div>
+      </div>
+    </div>
 
     <!-- 预设管理弹窗 -->
     <div class="modal" id="modal-preset" hidden>

@@ -18,6 +18,8 @@ export default {
     loadedCount: '已加入 {{count}} 張相片',
     parsing_one: '正在解析 {{count}} 張相片…',
     parsing_other: '正在解析 {{count}} 張相片…',
+    expand: '展開',
+    collapse: '收起',
   },
   panel: {
     listTitleLabel: '已選相片',

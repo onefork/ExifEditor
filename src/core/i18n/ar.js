@@ -19,6 +19,8 @@ export default {
     loadedCount_other: 'تم تحميل {{count}} صور',
     parsing_one: 'جارٍ تحليل صورة واحدة…',
     parsing_other: 'جارٍ تحليل {{count}} صور…',
+    expand: 'توسيع',
+    collapse: 'طي',
   },
   panel: {
     listTitleLabel: 'الصور المختارة',

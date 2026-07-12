@@ -165,6 +165,56 @@ body {
   text-align: left;
 }
 
+/* ---------- 极小顶栏（is-compact 时显示） ---------- */
+
+.app-header.is-full .header-compact { display: none; }
+.app-header.is-compact .header-main { display: none; }
+.app-header.is-compact .header-count { display: none; }
+
+.app-header.is-compact {
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+}
+
+.header-compact {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 760px;
+  margin: 0 auto;
+  min-height: var(--control-h-md);
+}
+
+.header-compact-name {
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.header-compact-count {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  color: var(--color-primary-dark);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.header-expand-btn,
+.header-collapse-btn {
+  flex-shrink: 0;
+  font-size: 16px;
+  color: var(--color-subtext);
+}
+.header-expand-btn:hover,
+.header-collapse-btn:hover {
+  background: var(--color-hover-bg);
+  color: var(--color-text);
+}
+
 /* ---------- Header controls: language + theme ---------- */
 
 .header-controls {
@@ -1462,6 +1512,50 @@ body {
   transition: background 0.15s, color 0.15s;
 }
 
+/* ---------- 吸底底栏：导出操作 ---------- */
+
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  background: var(--color-card);
+  border-top: 1px solid var(--color-border);
+  padding: var(--space-sm) var(--space-lg) calc(env(safe-area-inset-bottom, 0px) + var(--space-sm));
+  box-shadow: 0 -1px 6px rgba(0, 0, 0, 0.04);
+}
+
+.action-bar-row {
+  display: flex;
+  gap: var(--space-sm);
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.action-bar-row .btn {
+  flex: 1 1 140px;
+}
+
+.action-bar .progress-wrap {
+  max-width: 760px;
+  margin: var(--space-sm) auto 0;
+}
+
+/* 有底栏时给 body 留出空间，避免内容被遮挡 */
+body.has-action-bar {
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 86px);
+}
+
+/* 窄屏：底栏按钮更紧凑 */
+@media (max-width: 640px) {
+  .action-bar-row .btn {
+    flex: 1 1 100px;
+    font-size: var(--fs-sm);
+    padding: 8px 10px;
+  }
+}
+
 .app-footer {
   text-align: center;
   color: var(--color-subtext);
@@ -1568,6 +1662,15 @@ body {
 [dir="rtl"] input[type="datetime-local"] {
   direction: ltr;
   text-align: left;
+}
+[dir="rtl"] .header-compact {
+  flex-direction: row-reverse;
+}
+[dir="rtl"] .header-compact-count {
+  text-align: right;
+}
+[dir="rtl"] .action-bar-row {
+  flex-direction: row-reverse;
 }
 
 /* ========== Hover 交互：仅支持 hover 的设备生效（规避触屏粘连） ========== */

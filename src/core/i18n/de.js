@@ -19,6 +19,8 @@ export default {
     loadedCount_other: '{{count}} Fotos geladen',
     parsing_one: 'Verarbeite {{count}} Foto…',
     parsing_other: 'Verarbeite {{count}} Fotos…',
+    expand: 'Ausklappen',
+    collapse: 'Einklappen',
   },
   panel: {
     listTitleLabel: 'Ausgewählt',

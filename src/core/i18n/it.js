@@ -19,6 +19,8 @@ export default {
     loadedCount_other: '{{count}} foto caricate',
     parsing_one: 'Elaborazione di {{count}} foto…',
     parsing_other: 'Elaborazione di {{count}} foto…',
+    expand: 'Espandi',
+    collapse: 'Comprimi',
   },
   panel: {
     listTitleLabel: 'Selezionate',
