@@ -91,7 +91,7 @@ export async function exportOneByOne(images, onProgress) {
     await cancelProgressNotification();
 
     if (directSaved > 0) {
-      await showNotification('保存完成', `已直接保存 ${directSaved} 张图片到相册（DCIM/exif-editor）`);
+      await showNotification('保存完成', `已直接保存 ${directSaved} 张图片到相册（DCIM/ExifEditor）`);
     } else {
       await showNotification('导出完成', `已处理 ${savedCount} 张图片，请通过分享菜单选择保存位置`);
     }
@@ -151,7 +151,7 @@ export async function exportZip(images, onProgress) {
     await cancelProgressNotification();
 
     if (saveResult.direct) {
-      await showNotification('保存完成', 'ZIP 已保存到 Download/exif-editor 目录');
+      await showNotification('保存完成', 'ZIP 已保存到 Download/ExifEditor 目录');
     } else {
       await showNotification('导出完成', 'ZIP 已生成，请通过分享菜单选择保存位置');
     }

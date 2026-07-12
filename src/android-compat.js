@@ -9,6 +9,13 @@ export function isAndroid() {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 }
 
+// 获取 Android 主版本号，非 Android 返回 null
+export function getAndroidVersion() {
+  const ua = navigator.userAgent || '';
+  const m = ua.match(/Android\s+(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
+}
+
 export function isNative() {
   return Capacitor.isNativePlatform();
 }
@@ -31,6 +38,7 @@ function blobToBase64(blob) {
 // ====================================================================
 export async function requestAndroidPermissions() {
   if (!isAndroid()) return;
+  const androidVer = getAndroidVersion();
 
   // 状态栏：使用默认样式，让 WebView 内容不被状态栏遮挡
   try {
@@ -46,13 +54,16 @@ export async function requestAndroidPermissions() {
     }
   } catch (e) {}
 
-  // Filesystem 权限
-  try {
-    const fsPerm = await Filesystem.checkPermissions();
-    if (fsPerm.publicStorage === 'prompt') {
-      await Filesystem.requestPermissions();
-    }
-  } catch (e) {}
+  // 存储权限：仅 Android ≤10 需要写权限（用于直接写入 DCIM 公共目录）
+  // Android 11+ 强制 Scoped Storage，app 私有目录无需权限，公共目录写入需要 MediaStore API
+  if (androidVer === null || androidVer <= 10) {
+    try {
+      const fsPerm = await Filesystem.checkPermissions();
+      if (fsPerm.publicStorage === 'prompt') {
+        await Filesystem.requestPermissions();
+      }
+    } catch (e) {}
+  }
 }
 
 // ====================================================================
@@ -109,23 +120,33 @@ export async function cancelProgressNotification() {
 // 保存到相册/路径
 // ====================================================================
 // 策略：逐级尝试公共目录 → app 私有目录 → Cache + Share
-// 1. Directory.ExternalStorage + DCIM/exif-editor/  → 直接进相册
-// 2. Directory.ExternalStorage + Pictures/exif-editor/ → 进图片文件夹
-// 3. Directory.ExternalStorage + Download/exif-editor/  → 进下载目录（ZIP）
-// 4. Directory.External (app 私有)  → 保底，不需权限
-// 5. Directory.Cache + Share        → 最终回退
+// 1. Directory.ExternalStorage + DCIM/ExifEditor/  → 直接进相册（Android ≤10）
+// 2. Directory.ExternalStorage + Download/ExifEditor/  → 进下载目录（ZIP，Android ≤10）
+// 3. Directory.External (app 私有) + ExifEditor/  → 保底，不需权限
+// 4. Directory.Cache + Share        → 最终回退
+// 注意：Android 11+ 强制 Scoped Storage，Directory.ExternalStorage 写入公共目录会被拒绝，
+// 因此 Android 11+ 直接跳过步骤 1-2，走 app 私有目录 + Share。
 
 // 根据文件类型选择目标子目录
 function getSaveSubPath(fileName) {
   const isImage = /\.jpe?g$/i.test(fileName);
   const isZip = /\.zip$/i.test(fileName);
-  if (isZip) return `Download/exif-editor/${fileName}`;
-  if (isImage) return `DCIM/exif-editor/${fileName}`;
-  return `Documents/exif-editor/${fileName}`;
+  if (isZip) return `Download/ExifEditor/${fileName}`;
+  if (isImage) return `DCIM/ExifEditor/${fileName}`;
+  return `Documents/ExifEditor/${fileName}`;
 }
 
 // 直接保存到公共目录（相册/下载等），不需要用户交互
+// Android 11+ 强制 Scoped Storage，写入公共目录会被拒绝，直接返回 null 走回退。
 async function saveToPublicStorage(blob, fileName) {
+  // Android 11+ (API 30+) 强制 Scoped Storage，
+  // Directory.ExternalStorage 写入 DCIM/Pictures 会被拒绝。
+  // 跳过直接保存，走 app 私有目录 + Share 回退。
+  const androidVer = getAndroidVersion();
+  if (androidVer !== null && androidVer >= 11) {
+    return null;
+  }
+
   const base64 = await blobToBase64(blob);
   const subPath = getSaveSubPath(fileName);
 
@@ -148,9 +169,11 @@ async function saveToPublicStorage(blob, fileName) {
 // 写入 app 私有外部存储（不需要权限，总是可写）
 async function saveToAppExternal(blob, fileName) {
   const base64 = await blobToBase64(blob);
+  // 使用 ExifEditor 子目录，避免文件散落在 app 根目录
+  const subPath = `ExifEditor/${fileName}`;
   try {
     const result = await Filesystem.writeFile({
-      path: fileName,
+      path: subPath,
       data: base64,
       directory: Directory.External,
       recursive: true,
@@ -159,9 +182,10 @@ async function saveToAppExternal(blob, fileName) {
   } catch (e) {
     try {
       const result = await Filesystem.writeFile({
-        path: fileName,
+        path: subPath,
         data: base64,
         directory: Directory.Cache,
+        recursive: true,
       });
       return { saved: true, uri: result.uri, directory: 'Cache', direct: false };
     } catch (e2) {
@@ -241,9 +265,9 @@ export async function saveBlobBatch(blobs, fileNames) {
   return results;
 }
 
-// 通过系统分享菜单分享文件
+// 通过系统分享菜单分享文件，返回是否成功
 export async function shareFiles(uris, title, text) {
-  if (!isAndroid() || !uris || uris.length === 0) return;
+  if (!isAndroid() || !uris || uris.length === 0) return false;
   try {
     await Share.share({
       files: uris,
@@ -251,7 +275,11 @@ export async function shareFiles(uris, title, text) {
       dialogTitle: '选择保存位置',
       text: text || '',
     });
+    return true;
   } catch (e) {
-    if (e && e.message && /cancel/i.test(e.message)) return;
+    if (e && e.message && /cancel/i.test(e.message)) return false;
+    // 不再静默吞掉错误，返回 false 让调用方知道分享失败
+    console.error('Share failed:', e);
+    return false;
   }
 }
