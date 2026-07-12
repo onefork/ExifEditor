@@ -39,7 +39,7 @@ The 7 distribution channels and their commands:
 | 1 | Web | Native JS | `npm run dev` / `npm run build -- --mode web` |
 | 2 | Capacitor / Android | Capacitor 8 | `npm run cap:sync` / `npm run apk:debug` |
 | 3 | CLI | Node.js + @inquirer/prompts | `npm run start:cli -- --help` |
-| 4 | HTTP API | Node.js built-in `http` (port 3000) | `npm run start:api` |
+| 4 | HTTP API | hono + @hono/node-server (port 3000) | `npm run start:api` |
 | 5 | Electron | Electron | `npm run start:electron` |
 | 6 | Vue SPA | Vue 3.5 + @vitejs/plugin-vue | `npm run build:vue` |
 | 7 | React SPA | React 19 + @vitejs/plugin-react | `npm run build:react` |
@@ -147,7 +147,7 @@ npm run build:react
 │   ├── ui/                 # UI layer
 │   │   ├── web/            # Native JS UI (main.js, styles.css)
 │   │   ├── cli/            # CLI UI (commands.js, prompts.js, formatter.js, index.js)
-│   │   ├── api/            # HTTP API UI (server.js, routes/, middleware/)
+│   │   ├── api/            # HTTP API UI (server.js, routes/)
 │   │   ├── vue/            # Vue SPA (App.vue, components/, composables/)
 │   │   ├── react/          # React SPA (App.jsx, components/, hooks/)
 │   │   └── electron/       # Electron preload.js
@@ -226,7 +226,7 @@ git push origin v1.2.0
 | 1 | Web | 原生 JS | `npm run dev` / `npm run build -- --mode web` |
 | 2 | Capacitor / Android | Capacitor 8 | `npm run cap:sync` / `npm run apk:debug` |
 | 3 | CLI | Node.js + @inquirer/prompts | `npm run start:cli -- --help` |
-| 4 | HTTP API | Node.js 内置 `http`（默认端口 3000） | `npm run start:api` |
+| 4 | HTTP API | hono + @hono/node-server（默认端口 3000） | `npm run start:api` |
 | 5 | Electron | Electron | `npm run start:electron` |
 | 6 | Vue SPA | Vue 3.5 + @vitejs/plugin-vue | `npm run build:vue` |
 | 7 | React SPA | React 19 + @vitejs/plugin-react | `npm run build:react` |
@@ -334,7 +334,7 @@ npm run build:react
 │   ├── ui/                 # 界面层
 │   │   ├── web/            # 原生 JS 界面（main.js、styles.css）
 │   │   ├── cli/            # CLI 界面（commands.js、prompts.js、formatter.js、index.js）
-│   │   ├── api/            # HTTP API 界面（server.js、routes/、middleware/）
+│   │   ├── api/            # HTTP API 界面（server.js、routes/）
 │   │   ├── vue/            # Vue SPA（App.vue、components/、composables/）
 │   │   ├── react/          # React SPA（App.jsx、components/、hooks/）
 │   │   └── electron/       # Electron preload.js
