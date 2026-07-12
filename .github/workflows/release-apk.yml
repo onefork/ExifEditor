@@ -36,18 +36,17 @@ jobs:
       # 默认 mode=production -> base='/', 适合 Capacitor WebView。
       - run: npm run cap:sync
 
+      # 用 setup-gradle 缓存 Gradle 发行版，规避 services.gradle.org 偶发不可达；
+      # 后续运行命中缓存后不再下载。
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
       - name: Build debug & release APK
         working-directory: android
         run: |
           chmod +x ./gradlew
-          # 重试 5 次规避 services.gradle.org 偶发连接拒绝；全部失败则 exit 1
-          for i in 1 2 3 4 5; do
-            ./gradlew assembleDebug assembleRelease --no-daemon && exit 0
-            echo "Build attempt $i failed, retrying in 30s..."
-            sleep 30
-          done
-          echo "All 5 build attempts failed."
-          exit 1
+          ./gradlew assembleDebug assembleRelease --no-daemon
 
       - name: Collect APKs
         run: |
