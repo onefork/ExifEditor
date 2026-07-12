@@ -40,9 +40,10 @@ export default defineConfig(async ({ mode }) => {
     plugins,
     optimizeDeps: {
       include: ['piexifjs', 'jszip', 'i18next', 'i18next-browser-languagedetector'],
-      esbuildOptions: {
-        mainFields: ['module', 'main'],
-        platform: 'browser',
+      rolldownOptions: {
+        output: {
+          format: 'esm',
+        },
       },
     },
     commonjsOptions: {

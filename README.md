@@ -41,8 +41,8 @@ The 7 distribution channels and their commands:
 | 3 | CLI | Node.js + @inquirer/prompts | `npm run start:cli -- --help` |
 | 4 | HTTP API | Node.js built-in `http` (port 3000) | `npm run start:api` |
 | 5 | Electron | Electron | `npm run start:electron` |
-| 6 | Vue SPA | Vue 3 + @vitejs/plugin-vue | `npm run build:vue` |
-| 7 | React SPA | React 18 + @vitejs/plugin-react | `npm run build:react` |
+| 6 | Vue SPA | Vue 3.5 + @vitejs/plugin-vue | `npm run build:vue` |
+| 7 | React SPA | React 19 + @vitejs/plugin-react | `npm run build:react` |
 
 ### Live Demo
 
@@ -58,12 +58,14 @@ The 7 distribution channels and their commands:
 | ZIP packaging | jszip |
 | Internationalization | i18next + i18next-browser-languagedetector |
 | Android packaging | @capacitor/core, @capacitor/android, @capacitor/cli, @capacitor/filesystem, @capacitor/local-notifications, @capacitor/share, @capacitor/status-bar (v8) |
-| CLI prompts (optional) | @inquirer/prompts |
-| Node image decoding (optional) | sharp |
-| React SPA (optional) | react, react-dom |
-| Build tool | vite |
-| Vue plugin (dev) | @vitejs/plugin-vue |
-| React plugin (dev) | @vitejs/plugin-react |
+| CLI prompts (optional) | @inquirer/prompts (v8) |
+| Node image decoding (optional) | sharp (v0.35) |
+| React SPA (optional) | react, react-dom (v19) |
+| Vue SPA (optional) | vue (v3.5) |
+| Electron (optional) | electron (v43) |
+| Build tool | vite (v8) |
+| Vue plugin (dev) | @vitejs/plugin-vue (v6) |
+| React plugin (dev) | @vitejs/plugin-react (v6) |
 
 `package.json` also exposes `exports` (`./core`, `./core/*`, `./platform/*`) for programmatic reuse, and a `bin` entry (`exif-editor` -> `src/app/cli.js`) for global CLI install.
 
@@ -170,8 +172,8 @@ The repo ships two GitHub Actions workflows:
 
 ```bash
 # Publish a new APK release:
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 ### Privacy
@@ -221,8 +223,8 @@ git push origin v0.1.0
 | 3 | CLI | Node.js + @inquirer/prompts | `npm run start:cli -- --help` |
 | 4 | HTTP API | Node.js 内置 `http`（默认端口 3000） | `npm run start:api` |
 | 5 | Electron | Electron | `npm run start:electron` |
-| 6 | Vue SPA | Vue 3 + @vitejs/plugin-vue | `npm run build:vue` |
-| 7 | React SPA | React 18 + @vitejs/plugin-react | `npm run build:react` |
+| 6 | Vue SPA | Vue 3.5 + @vitejs/plugin-vue | `npm run build:vue` |
+| 7 | React SPA | React 19 + @vitejs/plugin-react | `npm run build:react` |
 
 ### 在线体验
 
@@ -238,12 +240,14 @@ git push origin v0.1.0
 | ZIP 打包 | jszip |
 | 国际化 | i18next + i18next-browser-languagedetector |
 | Android 包装 | @capacitor/core、@capacitor/android、@capacitor/cli、@capacitor/filesystem、@capacitor/local-notifications、@capacitor/share、@capacitor/status-bar（v8） |
-| CLI 交互提示（可选） | @inquirer/prompts |
-| Node 图像解码（可选） | sharp |
-| React SPA（可选） | react、react-dom |
-| 构建工具 | vite |
-| Vue 插件（dev） | @vitejs/plugin-vue |
-| React 插件（dev） | @vitejs/plugin-react |
+| CLI 交互提示（可选） | @inquirer/prompts（v8） |
+| Node 图像解码（可选） | sharp（v0.35） |
+| React SPA（可选） | react、react-dom（v19） |
+| Vue SPA（可选） | vue（v3.5） |
+| Electron（可选） | electron（v43） |
+| 构建工具 | vite（v8） |
+| Vue 插件（dev） | @vitejs/plugin-vue（v6） |
+| React 插件（dev） | @vitejs/plugin-react（v6） |
 
 `package.json` 还通过 `exports` 字段（`./core`、`./core/*`、`./platform/*`）暴露核心模块供外部复用，并提供 `bin` 字段（`exif-editor` -> `src/app/cli.js`）支持全局安装 CLI。
 
@@ -350,8 +354,8 @@ npm run build:react
 
 ```bash
 # 发布新版本 APK:
-git tag v0.1.0
-git push origin v0.1.0
+git tag v1.2.0
+git push origin v1.2.0
 ```
 
 ### 隐私
