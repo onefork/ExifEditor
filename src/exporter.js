@@ -2,6 +2,20 @@ import JSZip from 'jszip';
 import { writeExif } from './exif-writer.js';
 import { isAndroid, saveBlobToFolder, saveBlobBatch, showNotification, showProgressNotification, cancelProgressNotification } from './android-compat.js';
 
+// Web 平台 (非 Android): 通过 <a download> 触发浏览器下载。
+// Android 走 saveBlobToFolder / saveBlobBatch 原生保存路径。
+function triggerBrowserDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  // 延迟释放，避免浏览器还没开始读取 blob
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
 // 为每张图片生成修改后的 Blob; 非 JPEG 跳过并在进度里标注
 async function processImage(image, report) {
   if (image.summary && image.summary.isJpeg === false && !/jpe?g/i.test(image.file.name || '')) {
@@ -81,6 +95,12 @@ export async function exportOneByOne(images, onProgress) {
     } else {
       await showNotification('导出完成', `已处理 ${savedCount} 张图片，请通过分享菜单选择保存位置`);
     }
+  } else if (blobs.length > 0) {
+    // Web: 逐个触发浏览器下载。注意：main.js 当前只传单张；若传多张，
+    // 浏览器可能拦截第二个及之后的下载（建议多张用 exportZip）。
+    for (let i = 0; i < blobs.length; i++) {
+      triggerBrowserDownload(blobs[i], fileNames[i]);
+    }
   }
 
   return results;
@@ -135,6 +155,9 @@ export async function exportZip(images, onProgress) {
     } else {
       await showNotification('导出完成', 'ZIP 已生成，请通过分享菜单选择保存位置');
     }
+  } else {
+    // Web: 触发浏览器下载 ZIP
+    triggerBrowserDownload(zipBlob, 'edited_images.zip');
   }
 
   return zipBlob;
