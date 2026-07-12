@@ -1,4 +1,10 @@
+// EXIF 读取核心模块（核心层）
+// 本模块 SHALL NOT 依赖任何 DOM/浏览器/Node.js API。
+// 图像解码与缩略图生成通过 imageDecoder 适配器注入；
+// 若未注入 imageDecoder，则跳过缩略图生成与尺寸回退，仅依赖 EXIF PixelXDimension/YDimension。
+
 import piexif from 'piexifjs';
+import { humanSize, formatExifDate } from './utils.js';
 
 const JPEG_MIME = 'image/jpeg';
 
@@ -53,15 +59,6 @@ function degMinSecToDecimal(dms, ref) {
   }
 }
 
-// 格式化 EXIF 日期 "YYYY:MM:DD HH:MM:SS" → "YYYY-MM-DD HH:MM:SS"
-export function formatExifDate(raw) {
-  if (!raw) return '';
-  const s = String(raw).trim();
-  const m = s.match(/^(\d{4}):(\d{2}):(\d{2})([ T])(\d{2}):(\d{2}):(\d{2})$/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]} ${m[5]}:${m[6]}:${m[7]}`;
-  return s;
-}
-
 function formatExposureTime(rational) {
   const num = rationalVal(rational);
   if (num == null) return null;
@@ -95,7 +92,12 @@ function formatFocalLengthMm(rational) {
   return Number(num.toFixed(1));
 }
 
-export async function readExif(file) {
+// readExif(file, { imageDecoder }) — EXIF 解析为纯逻辑；
+// 缩略图与图像尺寸回退通过 imageDecoder 适配器注入：
+//   imageDecoder.decode(file): Promise<{ width, height }>
+//   imageDecoder.generateThumbnail(file, orientation): Promise<string>
+// 若未提供 imageDecoder，则跳过尺寸回退与缩略图生成（thumbnail 保持 null）。
+export async function readExif(file, { imageDecoder } = {}) {
   const isJpeg = file.type === JPEG_MIME || /\.(jpe?g)$/i.test(file.name);
   const fileName = file.name;
   const fileSize = file.size;
@@ -116,11 +118,32 @@ export async function readExif(file) {
     exposureBias: null,
     focalLength: null,
     focalLengthIn35mmFilm: null,
+    flashCode: null,
     orientation: 1,
     error: null,
     thumbnail: null,
     isJpeg,
   };
+
+  // 仅在 imageDecoder 注入时尝试通过适配器获取图像尺寸（EXIF 缺失时的回退）
+  async function tryDecodeDimensions() {
+    if (!imageDecoder || typeof imageDecoder.decode !== 'function') return;
+    try {
+      const decoded = await imageDecoder.decode(file);
+      if (decoded) {
+        summary.width = decoded.width;
+        summary.height = decoded.height;
+      }
+    } catch (e) {}
+  }
+
+  // 仅在 imageDecoder 注入时生成缩略图
+  async function tryGenerateThumbnail() {
+    if (!imageDecoder || typeof imageDecoder.generateThumbnail !== 'function') return;
+    try {
+      summary.thumbnail = await imageDecoder.generateThumbnail(file, summary.orientation);
+    } catch (e) {}
+  }
 
   try {
     const buffer = await file.arrayBuffer();
@@ -186,86 +209,23 @@ export async function readExif(file) {
       if (h) summary.height = h;
     }
 
+    // EXIF 缺失尺寸时，通过 imageDecoder 回退（仅在 imageDecoder 注入时）
     if (!summary.width || !summary.height) {
-      try {
-        const img = await decodeImage(file);
-        summary.width = img.width;
-        summary.height = img.height;
-      } catch (e2) {}
+      await tryDecodeDimensions();
     }
 
-    try {
-      summary.thumbnail = await generateThumbnail(file, summary.orientation);
-    } catch (e3) {}
+    // 缩略图生成（仅在 imageDecoder 注入时）
+    await tryGenerateThumbnail();
 
     return summary;
   } catch (err) {
     summary.error = err && err.message ? err.message : String(err);
-    try {
-      const img = await decodeImage(file);
-      summary.width = img.width;
-      summary.height = img.height;
-      summary.thumbnail = await generateThumbnail(file, summary.orientation);
-    } catch (e2) {}
+    // 即使整体失败，仍尝试通过 imageDecoder 获取尺寸与缩略图
+    await tryDecodeDimensions();
+    await tryGenerateThumbnail();
     return summary;
   }
 }
 
-function decodeImage(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => {
-      resolve({ width: img.naturalWidth, height: img.naturalHeight, img });
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => {
-      reject(new Error('图像解码失败'));
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-  });
-}
-
-async function generateThumbnail(file, orientation) {
-  const decoded = await decodeImage(file);
-  const maxSize = 200;
-  const scale = Math.min(1, maxSize / Math.max(decoded.width, decoded.height));
-  const w = Math.round(decoded.width * scale);
-  const h = Math.round(decoded.height * scale);
-  // orientation 5-8 需要旋转/翻转, 画布宽高需交换
-  const swap = orientation >= 5 && orientation <= 8;
-  const canvasW = swap ? h : w;
-  const canvasH = swap ? w : h;
-  const canvas = document.createElement('canvas');
-  canvas.width = canvasW;
-  canvas.height = canvasH;
-  const ctx = canvas.getContext('2d');
-  applyOrientation(ctx, canvasW, canvasH, orientation);
-  ctx.drawImage(decoded.img, 0, 0, w, h);
-  return canvas.toDataURL('image/jpeg', 0.85);
-}
-
-function applyOrientation(ctx, w, h, orientation) {
-  switch (orientation) {
-    case 2: ctx.translate(w, 0); ctx.scale(-1, 1); break;
-    case 3: ctx.translate(w, h); ctx.rotate(Math.PI); break;
-    case 4: ctx.translate(0, h); ctx.scale(1, -1); break;
-    case 5: ctx.rotate(0.5 * Math.PI); ctx.scale(1, -1); break;
-    case 6: ctx.rotate(0.5 * Math.PI); ctx.translate(0, -h); break;
-    case 7: ctx.rotate(0.5 * Math.PI); ctx.translate(w, -h); ctx.scale(-1, 1); break;
-    case 8: ctx.rotate(-0.5 * Math.PI); ctx.translate(-w, 0); break;
-    default: break;
-  }
-}
-
-export function humanSize(bytes) {
-  if (!bytes) return '0 B';
-  const n = Number(bytes);
-  if (Number.isNaN(n)) return String(bytes);
-  const units = ['B', 'KB', 'MB', 'GB'];
-  let val = n;
-  let i = 0;
-  while (val >= 1024 && i < units.length - 1) { val /= 1024; i++; }
-  return `${val.toFixed(val >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
-}
+// 工具函数从 utils.js 引入并 re-export，保持与旧模块相同的公开 API
+export { humanSize, formatExifDate };

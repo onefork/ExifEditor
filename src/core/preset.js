@@ -1,11 +1,11 @@
-const STORAGE_KEY = 'exif_editor_presets';
+export const STORAGE_KEY = 'exif_editor_presets';
 
-// 默认预设列表（首次加载时写入 localStorage）
+// 默认预设列表（首次加载时通过 storage adapter 写入）
 // - id 全用英文，方便第三方译员添加新语种
 // - name 用英文通用名，但**不持久化**；显示名称按当前语言的 i18n 翻译动态解析；
 //   只有当用户显式编辑了名称时，才会持久化 name，此后不再随语言切换
 // - offsetMeters 根据景点大小多样化（单体建筑 ~200m，广场 ~400m，大型景区 ~1500m）
-const DEFAULT_PRESETS = [
+export const DEFAULT_PRESETS = [
   // 中国（3 个）
   { id: 'default-forbidden-city', name: 'Beijing · Forbidden City',   lat: 39.9163, lng: 116.3972, offsetMeters: 300 },
   { id: 'default-shanghai-bund',  name: 'Shanghai · The Bund',         lat: 31.2397, lng: 121.4908, offsetMeters: 400 },
@@ -21,13 +21,33 @@ const DEFAULT_PRESETS = [
 // 通过 id 快速查询默认预设（供"是否仍为原样"判断 & 名称回退）
 const DEFAULT_PRESET_BY_ID = new Map(DEFAULT_PRESETS.map((p) => [p.id, p]));
 
+// 模块级 storage 适配器实例，由 initPresetManager 注入
+// 接口：{ get(key): Promise<string|null>, set(key, value): Promise<void> }
+let _storage = null;
+
+// 初始化 PresetManager，注入 storage 适配器
+// 必须在使用任何 CRUD 函数之前调用，否则抛错
+export function initPresetManager({ storage } = {}) {
+  if (!storage || typeof storage.get !== 'function' || typeof storage.set !== 'function') {
+    throw new Error('initPresetManager requires { storage } option with get(key) and set(key, value) methods');
+  }
+  _storage = storage;
+}
+
+function getStorage() {
+  if (!_storage) {
+    throw new Error('PresetManager not initialized. Call initPresetManager({ storage }) first.');
+  }
+  return _storage;
+}
+
 function uid() {
   return 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 }
 
-function loadAll() {
+async function loadAll() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = await getStorage().get(STORAGE_KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
     return Array.isArray(arr) ? arr : [];
@@ -36,16 +56,16 @@ function loadAll() {
   }
 }
 
-function persist(list) {
+async function persist(list) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    await getStorage().set(STORAGE_KEY, JSON.stringify(list));
   } catch (e) {}
 }
 
-// --- 首次初始化：localStorage 中无预设时写入默认预设 ---
-// 判断依据：`exif_editor_presets` 是否存在（非空数组也视为已初始化）
-export function ensureDefaultsOnce() {
-  const raw = localStorage.getItem(STORAGE_KEY);
+// --- 首次初始化：storage 中无预设时写入默认预设 ---
+// 判断依据：`exif_editor_presets` 对应的 key 是否存在（非空数组也视为已初始化）
+export async function ensureDefaultsOnce() {
+  const raw = await getStorage().get(STORAGE_KEY);
   if (raw !== null && raw !== undefined) return; // 已初始化过
   // 故意不包含 name：仅保留 id/lat/lng/offsetMeters，使显示名走 i18n
   const seedList = DEFAULT_PRESETS.map((p) => ({
@@ -54,7 +74,7 @@ export function ensureDefaultsOnce() {
     lng: p.lng,
     offsetMeters: p.offsetMeters,
   }));
-  persist(seedList);
+  await persist(seedList);
 }
 
 // --- 取预设的显示名称（按需求三级回退：持久化 name → i18n → DEFAULT_PRESETS.name） ---
@@ -81,8 +101,8 @@ export function getPresetDisplayName(preset, t) {
   return (preset.name || '').trim() || '';
 }
 
-export function listPresets() {
-  ensureDefaultsOnce();
+export async function listPresets() {
+  await ensureDefaultsOnce();
   return loadAll();
 }
 
@@ -90,8 +110,8 @@ export function listPresets() {
 // 命名策略：默认预设（default-*）只有当用户主动改名时才持久化 name 字段
 //          未改动名称 → name 字段不写入 storage，让显示名随语言切换
 //          用户新增预设 → 总是写入 name
-export function savePreset(preset) {
-  const list = loadAll();
+export async function savePreset(preset) {
+  const list = await loadAll();
   const id = preset.id || uid();
   const isDefault = id.startsWith('default-');
 
@@ -129,13 +149,13 @@ export function savePreset(preset) {
   } else {
     list.push(toSave);
   }
-  persist(list);
+  await persist(list);
   return toSave;
 }
 
-export function deletePreset(id) {
-  const list = loadAll().filter((p) => p.id !== id);
-  persist(list);
+export async function deletePreset(id) {
+  const list = (await loadAll()).filter((p) => p.id !== id);
+  await persist(list);
   return list;
 }
 
@@ -170,21 +190,21 @@ export function applyPresetToImage(preset, edits) {
 
 // --- 调整预设顺序 ---
 // 上移一格（与前一项交换）；若已是第一项则返回 null
-export function movePresetUp(id) {
-  const list = loadAll();
+export async function movePresetUp(id) {
+  const list = await loadAll();
   const idx = list.findIndex((p) => p.id === id);
   if (idx <= 0) return null;
   [list[idx - 1], list[idx]] = [list[idx], list[idx - 1]];
-  persist(list);
+  await persist(list);
   return list;
 }
 
 // 下移一格（与后一项交换）；若已是最后一项则返回 null
-export function movePresetDown(id) {
-  const list = loadAll();
+export async function movePresetDown(id) {
+  const list = await loadAll();
   const idx = list.findIndex((p) => p.id === id);
   if (idx < 0 || idx >= list.length - 1) return null;
   [list[idx], list[idx + 1]] = [list[idx + 1], list[idx]];
-  persist(list);
+  await persist(list);
   return list;
 }

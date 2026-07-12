@@ -1,5 +1,3 @@
-import { readExif } from './exif-reader.js';
-
 // 可编辑字段常量
 export const EDITABLE_FIELDS = [
   'dateTimeOriginal',
@@ -24,7 +22,10 @@ function emptyEdits() {
   return o;
 }
 
-export function createImageStore() {
+export function createImageStore({ readExif } = {}) {
+  if (typeof readExif !== 'function') {
+    throw new Error('createImageStore requires { readExif } option');
+  }
   const state = {
     images: [], // [{id, file, summary, edits, selected}]
     selectedId: null,

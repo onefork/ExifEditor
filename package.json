@@ -1,12 +1,30 @@
 {
   "name": "exif-editor",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
+  "description": "图片信息编辑器 — 批量修改 EXIF 元数据，核心与界面分离支持多平台分发",
+  "exports": {
+    "./core": "./src/core/index.js",
+    "./core/*": "./src/core/*",
+    "./platform/*": "./src/platform/*"
+  },
+  "bin": {
+    "exif-editor": "./src/app/cli.js"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:web": "vite build --mode web",
+    "build:capacitor": "vite build",
+    "build:vue": "vite build --mode vue",
+    "build:react": "vite build --mode react",
+    "build:cli": "echo 'CLI runs directly via node, no build step needed'",
+    "build:api": "echo 'API runs directly via node, no build step needed'",
     "preview": "vite preview --port 4173 --host",
+    "start:cli": "node src/app/cli.js",
+    "start:api": "node src/app/api.js",
+    "start:electron": "electron src/app/electron-main.js",
     "cap:sync": "npm run build && npx cap sync android",
     "cap:open": "npx cap open android",
     "apk:debug": "npm run cap:sync && cd android && ./gradlew assembleDebug",
@@ -25,7 +43,15 @@
     "jszip": "^3.10.1",
     "piexifjs": "^1.0.6"
   },
+  "optionalDependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "sharp": "^0.33.0"
+  },
   "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.0",
+    "@vitejs/plugin-vue": "^5.1.0",
     "vite": "^5.4.2"
   }
 }

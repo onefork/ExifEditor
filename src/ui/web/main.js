@@ -1,9 +1,26 @@
-import { createImageStore } from './image-store.js';
-import { humanSize, formatExifDate } from './exif-reader.js';
-import { exportZip, exportOneByOne } from './exporter.js';
-import { listPresets, savePreset, deletePreset, applyPresetToImage, ensureDefaultsOnce, getPresetDisplayName, movePresetUp, movePresetDown } from './preset.js';
-import { SUPPORTED_LANGUAGES, t, changeLanguage, currentLanguage, getStoredTheme, setTheme, initTheme, FALLBACK_LANGUAGE } from './i18n/index.js';
-import { requestAndroidPermissions } from './android-compat.js';
+import {
+  createImageStore,
+  humanSize,
+  formatExifDate,
+  exportZip,
+  exportOneByOne,
+  listPresets,
+  savePreset,
+  deletePreset,
+  applyPresetToImage,
+  ensureDefaultsOnce,
+  getPresetDisplayName,
+  movePresetUp,
+  movePresetDown,
+  SUPPORTED_LANGUAGES,
+  t,
+  changeLanguage,
+  currentLanguage,
+  FALLBACK_LANGUAGE,
+} from '../../core/index.js';
+import { getStoredTheme, setTheme, initTheme, setDocumentDirection } from '../../platform/web/dom-i18n.js';
+
+export async function createApp({ readExif }) {
 
 // ====================================================================
 // DOM 引用
@@ -94,8 +111,8 @@ const progressText = document.getElementById('progress-text');
 // ====================================================================
 // store 初始化
 // ====================================================================
-const store = createImageStore();
-ensureDefaultsOnce();
+const store = createImageStore({ readExif });
+await ensureDefaultsOnce();
 
 // 查看模式切换：true = 查看修改后的信息；false = 查看修改前的原始信息
 // 已修改的字段在 showEdited=true 时会高亮显示；不持久化（刷新重置）
@@ -881,8 +898,8 @@ function updateSingleFieldHighlight(im) {
 // ====================================================================
 // 预设下拉渲染
 // ====================================================================
-function renderPresetSelect() {
-  const presets = listPresets();
+async function renderPresetSelect() {
+  const presets = await listPresets();
   const dropdowns = [singlePresetSelect, batchPresetSelect].filter(Boolean);
   dropdowns.forEach((sel) => {
     if (!sel) return;
@@ -906,10 +923,10 @@ function renderPresetSelect() {
 }
 
 // 当下拉框中当前选中的预设被改动后,把最新值回填到输入框与滑块
-function syncActivePresetInputs() {
+async function syncActivePresetInputs() {
   // 单图模式：仅同步滑块/数值显示与输入框，不重新应用预设到图片（避免随机偏移）
   if (singlePresetSelect && singlePresetSelect.value) {
-    const preset = listPresets().find((p) => p.id === singlePresetSelect.value);
+    const preset = (await listPresets()).find((p) => p.id === singlePresetSelect.value);
     if (preset) {
       if (singlePresetOffsetSlider) singlePresetOffsetSlider.value = String(preset.offsetMeters);
       if (singlePresetOffsetView) singlePresetOffsetView.textContent = String(preset.offsetMeters);
@@ -919,7 +936,7 @@ function syncActivePresetInputs() {
   }
   // 批量模式
   if (batchPresetSelect && batchPresetSelect.value) {
-    const preset = listPresets().find((p) => p.id === batchPresetSelect.value);
+    const preset = (await listPresets()).find((p) => p.id === batchPresetSelect.value);
     if (preset) {
       if (batchPresetOffsetSlider) batchPresetOffsetSlider.value = String(preset.offsetMeters);
       if (batchPresetOffsetView) batchPresetOffsetView.textContent = String(preset.offsetMeters);
@@ -933,8 +950,8 @@ function syncActivePresetInputs() {
   if (typeof renderAll === 'function') renderAll();
 }
 
-function renderPresetList() {
-  const presets = listPresets();
+async function renderPresetList() {
+  const presets = await listPresets();
   presetListEl.innerHTML = '';
   const lastIdx = presets.length - 1;
   for (let i = 0; i < presets.length; i++) {
@@ -962,8 +979,8 @@ function renderPresetList() {
     upBtn.textContent = '▲';
     upBtn.setAttribute('aria-label', t('preset.moveUp', { defaultValue: 'Move up' }));
     if (i === 0) upBtn.disabled = true;
-    upBtn.addEventListener('click', () => {
-      movePresetUp(p.id);
+    upBtn.addEventListener('click', async () => {
+      await movePresetUp(p.id);
       renderPresetSelect();
       renderPresetList();
       syncActivePresetInputs();
@@ -975,8 +992,8 @@ function renderPresetList() {
     downBtn.textContent = '▼';
     downBtn.setAttribute('aria-label', t('preset.moveDown', { defaultValue: 'Move down' }));
     if (i === lastIdx) downBtn.disabled = true;
-    downBtn.addEventListener('click', () => {
-      movePresetDown(p.id);
+    downBtn.addEventListener('click', async () => {
+      await movePresetDown(p.id);
       renderPresetSelect();
       renderPresetList();
       syncActivePresetInputs();
@@ -1008,7 +1025,7 @@ function renderPresetList() {
     delBtn.addEventListener('click', async () => {
       const ok = await showConfirm(t('preset.deleteConfirm', { name: getPresetDisplayName(p, t) }));
       if (ok) {
-        deletePreset(p.id);
+        await deletePreset(p.id);
         // 如果删除的是当前选中预设,先清下拉框
         if (singlePresetSelect && singlePresetSelect.value === p.id) {
           singlePresetSelect.value = '';
@@ -1275,14 +1292,14 @@ document.querySelectorAll('[data-clear-single]').forEach((btn) => {
 
 // ---- 浏览模式: 预设下拉 ----
 if (singlePresetSelect) {
-  singlePresetSelect.addEventListener('change', () => {
+  singlePresetSelect.addEventListener('change', async () => {
     const id = store.selectedId;
     const presetId = singlePresetSelect.value;
     if (!presetId) {
       // 用户切回"不预设"
       return;
     }
-    const preset = listPresets().find((p) => p.id === presetId);
+    const preset = (await listPresets()).find((p) => p.id === presetId);
     if (!preset) return;
     // 选了预设 → 填充值
     if (singlePresetOffsetSlider) singlePresetOffsetSlider.value = String(preset.offsetMeters);
@@ -1304,13 +1321,13 @@ if (singlePresetSelect) {
 }
 // 拖动 offset 滑块 → 重新随机偏移 (仅在已选预设时触发)
 if (singlePresetOffsetSlider) {
-  singlePresetOffsetSlider.addEventListener('input', () => {
+  singlePresetOffsetSlider.addEventListener('input', async () => {
     if (singlePresetOffsetView) singlePresetOffsetView.textContent = singlePresetOffsetSlider.value;
     const presetId = singlePresetSelect ? singlePresetSelect.value : '';
     if (!presetId) return;
     const id = store.selectedId;
     if (!id) return;
-    const preset = listPresets().find((p) => p.id === presetId);
+    const preset = (await listPresets()).find((p) => p.id === presetId);
     if (!preset) return;
     const offsetMeters = Number(singlePresetOffsetSlider.value);
     const im = store.images.find((x) => x.id === id);
@@ -1588,10 +1605,10 @@ if (btnBatchShiftApply) {
 
 // ---- 批量模式: 预设下拉 → 只填入输入框 ----
 if (batchPresetSelect) {
-  batchPresetSelect.addEventListener('change', () => {
+  batchPresetSelect.addEventListener('change', async () => {
     const presetId = batchPresetSelect.value;
     if (!presetId) return;
-    const preset = listPresets().find((p) => p.id === presetId);
+    const preset = (await listPresets()).find((p) => p.id === presetId);
     if (!preset) return;
     if (batchPresetOffsetSlider) {
       batchPresetOffsetSlider.value = String(preset.offsetMeters);
@@ -1705,7 +1722,7 @@ if (btnPresetClear) {
   });
 }
 if (presetForm) {
-  presetForm.addEventListener('submit', (e) => {
+  presetForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     // 只有当用户改动了名称时才在 payload 中带 name
     // 默认预设若名称未改动 → name 不持久化 → 仍随语言切换
@@ -1722,7 +1739,7 @@ if (presetForm) {
     if (isNewPreset || nameChanged) {
       payload.name = currentName;
     }
-    savePreset(payload);
+    await savePreset(payload);
     resetPresetForm(true);
     renderPresetSelect();
     renderPresetList();
@@ -1813,8 +1830,7 @@ renderAll();
 renderPresetSelect();
 updateBatchApplyButtons();
 
-// Android: 启动时申请权限（通知 + 存储）
-requestAndroidPermissions();
+// Android permissions are requested by the entry point (app/web.js).
 // 初始设置查看模式（眼睛图标状态）
 document.querySelectorAll('.btn-toggle-view').forEach((btn) => {
   btn.textContent = '👁';
@@ -1827,3 +1843,4 @@ setTimeout(() => {
   renderPresetSelect();
   updateBatchApplyButtons();
 }, 0);
+}

@@ -120,7 +120,7 @@ export async function writeExif(file, edits) {
   }
   if (lngValid) {
     exifObj['GPS'][piexif.GPSIFD.GPSLongitude] = decimalToDmsRational(Number(gpsLng));
-    exifObj['GPS'][piexif.GPSLongitudeRef] = Number(gpsLng) >= 0 ? 'E' : 'W';
+    exifObj['GPS'][piexif.GPSIFD.GPSLongitudeRef] = Number(gpsLng) >= 0 ? 'E' : 'W';
   } else if (fields.gpsLng && fields.gpsLng.editedBy === 'user') {
     // 用户明确清空经度：删除原 EXIF 经度
     delete exifObj['GPS'][piexif.GPSIFD.GPSLongitude];

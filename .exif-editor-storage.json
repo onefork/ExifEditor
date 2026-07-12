@@ -1,0 +1,3 @@
+{
+  "exif_editor_presets": "[{\"id\":\"default-forbidden-city\",\"lat\":39.9163,\"lng\":116.3972,\"offsetMeters\":300},{\"id\":\"default-shanghai-bund\",\"lat\":31.2397,\"lng\":121.4908,\"offsetMeters\":400},{\"id\":\"default-westlake\",\"lat\":30.2592,\"lng\":120.1308,\"offsetMeters\":1500},{\"id\":\"default-eiffel\",\"lat\":48.8584,\"lng\":2.2945,\"offsetMeters\":200},{\"id\":\"default-rome-colosseum\",\"lat\":41.8902,\"lng\":12.4922,\"offsetMeters\":300},{\"id\":\"default-newyork-statue\",\"lat\":40.6892,\"lng\":-74.0445,\"offsetMeters\":200},{\"id\":\"default-giza-pyramids\",\"lat\":29.9792,\"lng\":31.1342,\"offsetMeters\":1500},{\"id\":\"default-sydney-opera\",\"lat\":-33.8568,\"lng\":151.2153,\"offsetMeters\":400}]"
+}
