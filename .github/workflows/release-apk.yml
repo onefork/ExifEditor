@@ -40,7 +40,12 @@ jobs:
         working-directory: android
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleDebug assembleRelease --no-daemon
+          # 重试 3 次，规避 services.gradle.org 偶发连接拒绝
+          for i in 1 2 3; do
+            ./gradlew assembleDebug assembleRelease --no-daemon && break
+            echo "Build attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
 
       - name: Collect APKs
         run: |
