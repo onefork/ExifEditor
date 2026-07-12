@@ -1,46 +1,51 @@
-// HTTP API server — uses ONLY Node.js built-in `http` module (no express).
-// Routes requests to the appropriate handler based on path prefix.
+// HTTP API server — built on Hono (v4) with @hono/node-server adapter.
 
-import { createServer } from 'http';
-import { handleImagesRoutes } from './routes/images.js';
-import { handlePresetsRoutes } from './routes/presets.js';
-import { handleLanguagesRoutes } from './routes/languages.js';
-import { handleCors, handleError } from './middleware/index.js';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { serve } from '@hono/node-server';
+import { createImagesRoutes } from './routes/images.js';
+import { createPresetsRoutes } from './routes/presets.js';
+import { createLanguagesRoutes } from './routes/languages.js';
+
+// Maps known error codes (e.g. UNSUPPORTED_FORMAT) to HTTP status.
+const CODE_TO_STATUS = {
+  UNSUPPORTED_FORMAT: 400,
+};
 
 export function startServer(deps, port) {
-  const server = createServer(async (req, res) => {
-    try {
-      handleCors(req, res);
+  const app = new Hono();
 
-      // CORS preflight
-      if (req.method === 'OPTIONS') {
-        res.writeHead(204);
-        res.end();
-        return;
-      }
+  // CORS — replaces hand-written cors.js
+  app.use(
+    '*',
+    cors({
+      origin: '*',
+      allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowHeaders: ['Content-Type', 'Authorization'],
+      maxAge: 86400,
+    }),
+  );
 
-      const url = new URL(req.url, `http://${req.headers.host}`);
-      const path = url.pathname;
-
-      if (path.startsWith('/api/images')) {
-        return await handleImagesRoutes(req, res, url, deps);
-      }
-      if (path.startsWith('/api/presets')) {
-        return await handlePresetsRoutes(req, res, url, deps);
-      }
-      if (path.startsWith('/api/languages')) {
-        return await handleLanguagesRoutes(req, res, url, deps);
-      }
-
-      res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'Not found' }));
-    } catch (err) {
-      handleError(err, res);
-    }
+  // Error handling — replaces hand-written error.js handleError()
+  app.onError((err, c) => {
+    const status =
+      (err && (err.status || err.statusCode)) ||
+      (err && err.code && CODE_TO_STATUS[err.code]) ||
+      500;
+    const body = { error: (err && err.message) || 'Internal Server Error' };
+    if (err && err.code) body.code = err.code;
+    return c.json(body, status);
   });
 
-  server.listen(port, () => {
-    console.log(`ExifEditor API server running on http://localhost:${port}`);
+  app.notFound((c) => c.json({ error: 'Not found' }, 404));
+
+  // Mount route modules
+  app.route('/', createImagesRoutes(deps));
+  app.route('/', createPresetsRoutes(deps));
+  app.route('/', createLanguagesRoutes(deps));
+
+  const server = serve({ fetch: app.fetch, port }, (info) => {
+    console.log(`ExifEditor API server running on http://localhost:${info.port}`);
   });
 
   return server;

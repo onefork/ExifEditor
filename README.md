@@ -69,6 +69,11 @@ The 7 distribution channels and their commands:
 
 `package.json` also exposes `exports` (`./core`, `./core/*`, `./platform/*`) for programmatic reuse, and a `bin` entry (`exif-editor` -> `src/app/cli.js`) for global CLI install.
 
+### Dependency Notes
+
+- **piexifjs** (v1.0.6): Upstream last published 2022-06-23, maintenance has stopped. This project has self-patched known bugs (e.g., GPSLongitudeRef typo). Core layer behavior is locked via runtime verification + unit tests.
+- **sharp** (v0.35.x): Native module (libvips), complex compilation. Used only by Node.js channels (CLI/API) for image decoding and thumbnail generation. If installation fails, CLI/API thumbnail functionality is unavailable, but EXIF read/write is not affected.
+
 ### Build Configuration
 
 `vite.config.js` is multi-mode:
@@ -250,6 +255,11 @@ git push origin v1.2.0
 | React 插件（dev） | @vitejs/plugin-react（v6） |
 
 `package.json` 还通过 `exports` 字段（`./core`、`./core/*`、`./platform/*`）暴露核心模块供外部复用，并提供 `bin` 字段（`exif-editor` -> `src/app/cli.js`）支持全局安装 CLI。
+
+### 依赖说明
+
+- **piexifjs**（v1.0.6）：上游最后发布 2022-06-23，已停止维护。本项目已自行修补已知 bug（如 GPSLongitudeRef 拼写错误）。核心层行为已通过运行时验证 + 单元测试锁定。
+- **sharp**（v0.35.x）：原生模块（libvips），编译复杂。仅用于 Node.js 渠道（CLI/API）的图像解码与缩略图生成。安装失败时 CLI/API 缩略图功能不可用，但 EXIF 读写不受影响。
 
 ### 构建配置
 

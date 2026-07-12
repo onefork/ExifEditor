@@ -1,7 +1,8 @@
 // Image routes — upload, EXIF query/modify, export.
 // In-memory storage: id -> { id, file, summary, edits }
 
-import { parseMultipart, readJsonBody } from '../middleware/multipart.js';
+import { Hono } from 'hono';
+import JSZip from 'jszip';
 
 // Module-level in-memory store (resets on server restart)
 const store = new Map();
@@ -19,133 +20,121 @@ function sanitizeSummary(summary) {
   return rest;
 }
 
-// Wrap a parsed multipart part into a File-like object compatible with the
-// core readExif/writeExif functions (which access file.name, file.size,
-// file.type, file.arrayBuffer()).
-function makeFileLike(part) {
-  return {
-    name: part.filename || 'image.jpg',
-    size: part.data.length,
-    lastModified: Date.now(),
-    type: part.type || 'image/jpeg',
-    arrayBuffer: () => Promise.resolve(part.data),
-  };
+// Reads and JSON-parses the request body. Empty body -> {}.
+// Invalid JSON throws an error with status=400 (handled by onError).
+async function readJsonBody(c) {
+  const text = await c.req.text().catch(() => '');
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const err = new Error('Invalid JSON body');
+    err.status = 400;
+    throw err;
+  }
 }
 
-function sendJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(payload));
-}
-
-function notFound(res, message = 'Not found') {
-  sendJson(res, 404, { error: message });
-}
-
-export async function handleImagesRoutes(req, res, url, deps) {
-  const path = url.pathname;
-  const method = req.method;
+export function createImagesRoutes(deps) {
+  const app = new Hono();
 
   // POST /api/images — upload image(s) via multipart/form-data
-  if (method === 'POST' && path === '/api/images') {
-    const parts = await parseMultipart(req);
-    const fileParts = parts.filter((p) => p.filename);
-    if (fileParts.length === 0) {
-      sendJson(res, 400, { error: 'No files uploaded' });
-      return;
+  app.post('/api/images', async (c) => {
+    const form = await c.req.parseBody({ all: true });
+    const files = Object.values(form)
+      .flat()
+      .filter((v) => v instanceof File);
+    if (files.length === 0) {
+      return c.json({ error: 'No files uploaded' }, 400);
     }
     const images = [];
-    for (const part of fileParts) {
-      const file = makeFileLike(part);
+    for (const file of files) {
       const summary = await deps.readExif(file);
       const id = uid();
       const entry = { id, file, summary, edits: {} };
       store.set(id, entry);
       images.push({ id, exif: sanitizeSummary(summary) });
     }
-    sendJson(res, 201, { images });
-    return;
-  }
+    return c.json({ images }, 201);
+  });
 
   // POST /api/images/export-zip — export multiple images as ZIP
-  if (method === 'POST' && path === '/api/images/export-zip') {
-    const body = await readJsonBody(req);
+  // NOTE: must be declared before /:id routes to avoid being captured.
+  // Builds the ZIP with JSZip directly using nodebuffer data, because the
+  // core exportZip() passes writeExif() Blobs to JSZip, which cannot read
+  // Blobs in Node.js (FileReader is undefined there).
+  app.post('/api/images/export-zip', async (c) => {
+    const body = await readJsonBody(c);
     const ids = Array.isArray(body.ids) ? body.ids : [];
-    const images = ids
-      .map((id) => store.get(id))
-      .filter(Boolean)
-      .map((entry) => ({ file: entry.file, summary: entry.summary, edits: entry.edits }));
-    if (images.length === 0) {
-      sendJson(res, 404, { error: 'No matching images found for the provided ids' });
-      return;
+    const entries = ids.map((id) => store.get(id)).filter(Boolean);
+    if (entries.length === 0) {
+      return c.json({ error: 'No matching images found for the provided ids' }, 404);
     }
-    const zipBlob = await deps.exportZip(images);
-    const buffer = Buffer.from(await zipBlob.arrayBuffer());
-    res.writeHead(200, {
+    const zip = new JSZip();
+    for (const entry of entries) {
+      const editsWithRaw = { ...entry.edits };
+      if (entry.summary && entry.summary.rawBinary) {
+        editsWithRaw.__rawBinary = entry.summary.rawBinary;
+      }
+      const blob = await deps.writeExif(entry.file, editsWithRaw);
+      const buffer = Buffer.from(await blob.arrayBuffer());
+      const originalName = entry.file.name || 'image.jpg';
+      const dot = originalName.lastIndexOf('.');
+      const base = dot >= 0 ? originalName.slice(0, dot) : originalName;
+      const ext = dot >= 0 ? originalName.slice(dot) : '.jpg';
+      zip.file(`${base}_exif${ext}`, buffer);
+    }
+    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+    return c.body(zipBuffer, 200, {
       'Content-Type': 'application/zip',
       'Content-Disposition': 'attachment; filename="edited_images.zip"',
     });
-    res.end(buffer);
-    return;
-  }
+  });
 
   // GET /api/images — list all uploaded images
-  if (method === 'GET' && path === '/api/images') {
+  app.get('/api/images', (c) => {
     const images = [];
     for (const entry of store.values()) {
       images.push({ id: entry.id, exif: sanitizeSummary(entry.summary), edits: entry.edits });
     }
-    sendJson(res, 200, { images });
-    return;
-  }
+    return c.json({ images });
+  });
 
-  // GET|PUT /api/images/:id/exif
-  const exifMatch = path.match(/^\/api\/images\/([^/]+)\/exif$/);
-  if (exifMatch) {
-    const id = exifMatch[1];
+  // GET /api/images/:id/exif — get EXIF for one image
+  app.get('/api/images/:id/exif', (c) => {
+    const id = c.req.param('id');
     const entry = store.get(id);
     if (!entry) {
-      notFound(res, 'Image not found');
-      return;
+      return c.json({ error: 'Image not found' }, 404);
     }
+    return c.json({ id, exif: sanitizeSummary(entry.summary), edits: entry.edits });
+  });
 
-    if (method === 'GET') {
-      sendJson(res, 200, {
-        id,
-        exif: sanitizeSummary(entry.summary),
-        edits: entry.edits,
-      });
-      return;
+  // PUT /api/images/:id/exif — modify EXIF
+  // Raw values in body.edits are wrapped as { value, editedBy: 'user' }.
+  app.put('/api/images/:id/exif', async (c) => {
+    const id = c.req.param('id');
+    const entry = store.get(id);
+    if (!entry) {
+      return c.json({ error: 'Image not found' }, 404);
     }
-
-    if (method === 'PUT') {
-      const body = await readJsonBody(req);
-      const incomingEdits = body.edits || {};
-      // Wrap raw values in { value, editedBy: 'user' } format expected by writeExif.
-      // If the caller already supplies the structured form, pass it through.
-      for (const [field, val] of Object.entries(incomingEdits)) {
-        if (val && typeof val === 'object' && 'value' in val) {
-          entry.edits[field] = val;
-        } else {
-          entry.edits[field] = { value: val, editedBy: 'user' };
-        }
+    const body = await readJsonBody(c);
+    const incomingEdits = body.edits || {};
+    for (const [field, val] of Object.entries(incomingEdits)) {
+      if (val && typeof val === 'object' && 'value' in val) {
+        entry.edits[field] = val;
+      } else {
+        entry.edits[field] = { value: val, editedBy: 'user' };
       }
-      sendJson(res, 200, {
-        id,
-        exif: sanitizeSummary(entry.summary),
-        edits: entry.edits,
-      });
-      return;
     }
-  }
+    return c.json({ id, exif: sanitizeSummary(entry.summary), edits: entry.edits });
+  });
 
-  // GET /api/images/:id/export — download the image with modified EXIF
-  const exportMatch = path.match(/^\/api\/images\/([^/]+)\/export$/);
-  if (exportMatch && method === 'GET') {
-    const id = exportMatch[1];
+  // GET /api/images/:id/export — download image with modified EXIF
+  app.get('/api/images/:id/export', async (c) => {
+    const id = c.req.param('id');
     const entry = store.get(id);
     if (!entry) {
-      notFound(res, 'Image not found');
-      return;
+      return c.json({ error: 'Image not found' }, 404);
     }
 
     // Pass __rawBinary from summary to avoid re-reading the file buffer
@@ -164,13 +153,11 @@ export async function handleImagesRoutes(req, res, url, deps) {
     const ext = dot >= 0 ? originalName.slice(dot) : '.jpg';
     const outName = `${base}_exif${ext}`;
 
-    res.writeHead(200, {
+    return c.body(buffer, 200, {
       'Content-Type': 'image/jpeg',
       'Content-Disposition': `attachment; filename="${outName}"`,
     });
-    res.end(buffer);
-    return;
-  }
+  });
 
-  notFound(res);
+  return app;
 }

@@ -1,53 +1,51 @@
 // Preset routes — CRUD endpoints backed by core preset functions.
 
-import { readJsonBody } from '../middleware/multipart.js';
+import { Hono } from 'hono';
 
-function sendJson(res, status, payload) {
-  res.writeHead(status, { 'Content-Type': 'application/json' });
-  res.end(JSON.stringify(payload));
+// Reads and JSON-parses the request body. Empty body -> {}.
+// Invalid JSON throws an error with status=400 (handled by onError).
+async function readJsonBody(c) {
+  const text = await c.req.text().catch(() => '');
+  if (!text) return {};
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    const err = new Error('Invalid JSON body');
+    err.status = 400;
+    throw err;
+  }
 }
 
-function notFound(res, message = 'Not found') {
-  sendJson(res, 404, { error: message });
-}
-
-export async function handlePresetsRoutes(req, res, url, deps) {
-  const path = url.pathname;
-  const method = req.method;
+export function createPresetsRoutes(deps) {
+  const app = new Hono();
 
   // GET /api/presets — list all presets
-  if (method === 'GET' && path === '/api/presets') {
+  app.get('/api/presets', async (c) => {
     const presets = await deps.listPresets();
-    sendJson(res, 200, { presets });
-    return;
-  }
+    return c.json({ presets });
+  });
 
   // POST /api/presets — create a new preset
-  if (method === 'POST' && path === '/api/presets') {
-    const body = await readJsonBody(req);
+  app.post('/api/presets', async (c) => {
+    const body = await readJsonBody(c);
     const saved = await deps.savePreset(body);
-    sendJson(res, 201, { preset: saved });
-    return;
-  }
+    return c.json({ preset: saved }, 201);
+  });
 
-  // /api/presets/:id — PUT (update) or DELETE
-  const idMatch = path.match(/^\/api\/presets\/([^/]+)$/);
-  if (idMatch) {
-    const id = idMatch[1];
+  // PUT /api/presets/:id — update a preset
+  app.put('/api/presets/:id', async (c) => {
+    const id = c.req.param('id');
+    const body = await readJsonBody(c);
+    const saved = await deps.savePreset({ ...body, id });
+    return c.json({ preset: saved });
+  });
 
-    if (method === 'PUT') {
-      const body = await readJsonBody(req);
-      const saved = await deps.savePreset({ ...body, id });
-      sendJson(res, 200, { preset: saved });
-      return;
-    }
+  // DELETE /api/presets/:id — delete a preset
+  app.delete('/api/presets/:id', async (c) => {
+    const id = c.req.param('id');
+    const presets = await deps.deletePreset(id);
+    return c.json({ presets });
+  });
 
-    if (method === 'DELETE') {
-      const presets = await deps.deletePreset(id);
-      sendJson(res, 200, { presets });
-      return;
-    }
-  }
-
-  notFound(res);
+  return app;
 }
